@@ -12,6 +12,7 @@
 #include "TeamPieces.generated.h"
 
 class AChessPiece;
+class ACheckSword;
 
 /**
  * This Object is a glorified Structure, due to limitation with Struct* in UPROPERTY(). 
@@ -35,5 +36,8 @@ public:
 	//Used to check for Checkmate and Stalemate
 	UPROPERTY()
 	TArray<FMove> ValidMoves;
+
+	UPROPERTY()
+	ACheckSword* TeamCheckSword;
 	
 };

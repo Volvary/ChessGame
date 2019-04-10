@@ -9,6 +9,8 @@
 #include "GameClasses/Pieces/PieceDefinitions/KnightPiece.h"
 #include "GameClasses/Pieces/PieceDefinitions/PawnPiece.h"
 
+#include "GameClasses/Pieces/CheckSword.h"
+
 APieceFamily::APieceFamily()
 {
 }

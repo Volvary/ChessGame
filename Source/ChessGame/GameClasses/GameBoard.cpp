@@ -14,6 +14,7 @@
 #include "Pieces/PieceDefinitions/KingPiece.h"
 
 #include "Pieces/PieceFamily.h"
+#include "Pieces/CheckSword.h"
 
 #include "Generic/BoardActionInformations.h"
 #include "Generic/GameResult.h"
@@ -133,6 +134,26 @@ void AGameBoard::PrepareGameBoard()
 
 			StorePiece(Temp);
 			GameBoard[i]->SetPiece(Temp);
+		}
+	}
+
+	//For every team, spawn their Check Sword and hide it.
+
+	for (UTeamPieces* Team : GamePieces)
+	{
+		for (APieceFamily* Family : FamiliesToUse)
+		{
+			if (Family->FamilyType == Team->Family)
+			{
+				Team->TeamCheckSword = GetWorld()->SpawnActor<ACheckSword>(Family->CheckSword);
+
+				if (Team->TeamCheckSword != nullptr)
+				{
+					Team->TeamCheckSword->SetActorHiddenInGame(true);
+				}
+
+				break;
+			}
 		}
 	}
 }

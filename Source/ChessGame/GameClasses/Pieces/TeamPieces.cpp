@@ -2,3 +2,5 @@
 
 #include "TeamPieces.h"
 #include "ChessPiece.h"
+
+#include "CheckSword.h"

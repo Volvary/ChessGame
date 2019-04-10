@@ -14,6 +14,7 @@ class ABishopPiece;
 class AKnightPiece;
 class ARookPiece;
 class APawnPiece;
+class ACheckSword;
 
 /**
  * 
@@ -45,6 +46,9 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Piece Family | Pieces")
 	TSubclassOf<APawnPiece> PawnPiece;
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Piece Family | Pieces")
+	TSubclassOf<ACheckSword> CheckSword;
 
 	APieceFamily();
 	~APieceFamily();
