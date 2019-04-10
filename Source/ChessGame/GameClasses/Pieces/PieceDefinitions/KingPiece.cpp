@@ -5,4 +5,5 @@
 void AKingPiece::BeginPlay()
 {
 	Movement = EPieceMovement::King | EPieceMovement::Castling;
+	bIsRoyal = true;
 }

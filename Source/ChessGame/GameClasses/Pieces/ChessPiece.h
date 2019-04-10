@@ -7,7 +7,11 @@
 
 #include "GameClasses/Pieces/PieceMovement.h"
 
+#include "GameClasses/Pieces/PieceFamilyType.h"
+
 #include "ChessPiece.generated.h"
+
+class ABoardTile;
 
 UCLASS()
 class CHESSGAME_API AChessPiece : public AActor
@@ -27,9 +31,21 @@ protected:
 	//Mostly used for Pawn moving 2 squares and for Castling.
 	bool bHasMoved = false;
 
+	//TODO: Remove
 	//Using bool since only two teams exist. Move to enum if adding more teams (1v1v1 chess)
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsBlackTeam = false;
+
+	UPROPERTY(BlueprintReadOnly)
+	EPieceFamilyType PieceFamily;
+
+	//Used to identify pieces that are in danger of other pieces.
+	TArray<AChessPiece*> PinningPieces;
+
+	//Used to know if this piece is critical for the game.
+	bool bIsRoyal = false;
+
+	ABoardTile* CurrentTile;
 
 public:
 	
@@ -55,7 +71,30 @@ public:
 
 	void SetHasMoved(bool NewMoved) {bHasMoved = NewMoved;}
 
+	bool IsRoyal(){ return bIsRoyal; }
+
+	void SetEnPassant(bool bNewStatus) { bCanBeEnPassant = bNewStatus; }
+
+	bool CanBeEnPassant() { return bCanBeEnPassant; }
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void ChangeColor();
 
+	EPieceFamilyType GetPieceFamily(){ return PieceFamily; }
+
+	bool IsPinned() { return PinningPieces.Num(); }
+
+	void SetPieceFamily(EPieceFamilyType Family);
+
+	void Pin(AChessPiece* PinningPiece);
+
+	void ClearPins();
+
+	TArray<AChessPiece*> GetPinningPieces();
+
+	ABoardTile* GetTile();
+
+	void SetCurrentTile(ABoardTile* Tile);
+
+	FIntVector GetPosition();
 };

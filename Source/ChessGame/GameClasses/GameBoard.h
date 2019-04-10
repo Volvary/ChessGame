@@ -9,6 +9,8 @@
 
 #include "Generic/BoardActionInformations.h"
 
+#include "GameClasses/Pieces/TeamPieces.h"
+
 #include "GameBoard.generated.h"
 
 class ABoardTile;
@@ -44,32 +46,13 @@ protected:
 	TSubclassOf<ABoardTile> BoardTileSubclass = nullptr;
 
 
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Chess Board | Pieces")
-	TSubclassOf<APawnPiece> PawnSubclass = nullptr;
-
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Chess Board | Pieces")
-	TSubclassOf<ARookPiece> RookSubclass = nullptr;
-
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Chess Board | Pieces")
-	TSubclassOf<AKnightPiece> KnightSubclass = nullptr;
-
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Chess Board | Pieces")
-	TSubclassOf<ABishopPiece> BishopSubclass = nullptr;
-
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Chess Board | Pieces")
-	TSubclassOf<AQueenPiece> QueenSubclass = nullptr;
-
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Chess Board | Pieces")
-	TSubclassOf<AKingPiece> KingSubclass = nullptr;
-
-
 	//******** Runtime Variables ********/
 
-	UPROPERTY(Transient)
+	UPROPERTY()
 	TArray<ABoardTile*> GameBoard;
 
-	UPROPERTY(Transient)
-	TArray<AChessPiece*> GamePieces;
+	UPROPERTY()
+	TArray<UTeamPieces*> GamePieces;
 
 	UPROPERTY(Transient)
 	AInGameGM* GameMode;
@@ -79,6 +62,12 @@ protected:
 
 	UPROPERTY(Transient)
 	TMap<ABoardTile*, EBoardTileState> MarkedTiles;
+
+	UPROPERTY(Transient)
+	AChessPiece* MostRecentMove;
+
+	/// Invalidated after every pseudo-move logic.
+	FMove* PotentialMovement = nullptr;
 
 public:	
 	// Sets default values for this actor's properties
@@ -105,11 +94,26 @@ public:
 	UFUNCTION()
 	void ClickedOnTile(ABoardTile* ClickedTile);
 
-	void FindValidMoves();
+	TMap<FIntVector, EBoardTileState> FindValidMoves(AChessPiece* PieceToTest = nullptr);
+
+	void TagForMovement();
+
+	void TagPinnedPieces(AChessPiece* Piece);
+
+	bool CanAttackPiece(AChessPiece* Piece, AChessPiece* Target);
 
 	bool CanBeMovedOn(ABoardTile* TileToMoveOn, AChessPiece* MovingPiece);
 
-	void Move(ABoardTile* StartTile, ABoardTile* EndTile);
+	EBoardTileState CheckMovementOnTile(
+		ABoardTile* RequestedTile, AChessPiece* Piece, bool bStraightLine, EBoardTileState OccupiedTileResult = EBoardTileState::Capture, 
+		EBoardTileState UnoccupiedTileResult = EBoardTileState::ValidMove, bool bHideAlliedFailure = false);
+	EBoardTileState CheckMovementOnTile(
+		ABoardTile* RequestedTile, AChessPiece* Piece, EBoardTileState OccupiedTileResult = EBoardTileState::Capture,
+		EBoardTileState UnoccupiedTileResult = EBoardTileState::ValidMove, bool bHideAlliedFailure = false);
+
+	bool IsInStraightLine(FIntVector TileToTest, FIntVector StartTile, FIntVector EndTile);
+
+	void Move(ABoardTile* StartTile, ABoardTile* EndTile, bool bMovingEnPassant = false);
 
 	TMap<FIntVector, EBoardTileState> TestPawnMovement(FIntVector Position, AChessPiece* Piece);
 	TMap<FIntVector, EBoardTileState> TestRookMovement(FIntVector Position, AChessPiece* Piece);
@@ -117,4 +121,17 @@ public:
 	TMap<FIntVector, EBoardTileState> TestKingMovement(FIntVector Position, AChessPiece* Piece);
 	TMap<FIntVector, EBoardTileState> TestKnightMovement(FIntVector Position, AChessPiece* Piece);
 	TMap<FIntVector, EBoardTileState> TestCastlingMovement(FIntVector Position, AChessPiece* Piece);
+
+	///Tests for Check, Checkmate and Stalemate.
+	void TestForGameStatus();
+
+	void StorePiece(AChessPiece* PieceToStore);
+
+	void RemovePiece(AChessPiece* PieceToRemove);
+	
+	TArray<AChessPiece*> GetTeamPieces(bool bBlackTeam);
+
+	void ClearPinned(EPieceFamilyType FamilyToIgnore = EPieceFamilyType::None);
+
+	void SetTeamInCheck(UTeamPieces* Team, bool bNewCheckStatus);
 };

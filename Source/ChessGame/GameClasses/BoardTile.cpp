@@ -54,6 +54,7 @@ bool ABoardTile::SetPiece(AChessPiece* NewPiece)
 	if (CurrentPiece != nullptr)
 	{
 		CurrentPiece->SetActorLocation(GetActorLocation() + FVector(TileSize * 0.5f, TileSize * 0.5f, 0.0f));
+		CurrentPiece->SetCurrentTile(this);
 	}
 	return true;
 }
