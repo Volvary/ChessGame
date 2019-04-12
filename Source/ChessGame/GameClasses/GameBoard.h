@@ -94,7 +94,7 @@ public:
 	UFUNCTION()
 	void ClickedOnTile(ABoardTile* ClickedTile);
 
-	TMap<FIntVector, EBoardTileState> FindValidMoves(AChessPiece* PieceToTest = nullptr);
+	TMap<FIntVector, EBoardTileState> FindValidMovesForPiece(AChessPiece* PieceToTest = nullptr);
 
 	void TagForMovement();
 

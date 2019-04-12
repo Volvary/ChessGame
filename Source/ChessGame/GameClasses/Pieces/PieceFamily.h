@@ -29,6 +29,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Piece Family")
 	EPieceFamilyType FamilyType;
 
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Piece Family")
+	UTexture2D* Thumbnail;
+
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Piece Family | Pieces")
 	TSubclassOf<AKingPiece> KingPiece;
 

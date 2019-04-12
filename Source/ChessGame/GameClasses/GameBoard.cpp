@@ -61,14 +61,14 @@ void AGameBoard::PrepareGameBoard()
 	}
 
 	int GameBoardPieces[] = {	
-		2,3,4,5,6,4,3,2,
+		2,3,4,6,5,4,3,2,
 		1,1,1,1,1,1,1,1,
 		0,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0,
 		1,1,1,1,1,1,1,1,
-		2,3,4,5,6,4,3,2
+		2,3,4,6,5,4,3,2
 	};
 
 	GameBoardDimensions = 2;
@@ -156,6 +156,8 @@ void AGameBoard::PrepareGameBoard()
 			}
 		}
 	}
+
+	
 }
 
 ABoardTile* AGameBoard::GetTileAt(int X, int Y, int Z /*= 0*/)
@@ -257,7 +259,7 @@ void AGameBoard::ClickedOnTile(ABoardTile* ClickedTile)
 	}
 }
 
-TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMoves(AChessPiece* PieceToTest)
+TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMovesForPiece(AChessPiece* PieceToTest)
 {
 
 	TMap<FIntVector, EBoardTileState> ValidCoordinates;
@@ -268,7 +270,7 @@ TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMoves(AChessPiece* PieceT
 	{
 		if (SelectedTile == nullptr)
 		{
-			UE_LOG(LogBoard, Error, TEXT("FindValidMoves called but SelectedTile was nullptr. Aborting..."));
+			UE_LOG(LogBoard, Error, TEXT("FindValidMovesForPiece called but SelectedTile was nullptr. Aborting..."));
 			return ValidCoordinates;
 		}
 
@@ -330,7 +332,7 @@ TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMoves(AChessPiece* PieceT
 
 void AGameBoard::TagForMovement()
 {
-	TMap<FIntVector, EBoardTileState> ValidCoordinates = FindValidMoves();
+	TMap<FIntVector, EBoardTileState> ValidCoordinates = FindValidMovesForPiece();
 
 	TArray<FIntVector> CoordinatesKeys;
 	ValidCoordinates.GetKeys(CoordinatesKeys);
@@ -363,7 +365,7 @@ void AGameBoard::TagForMovement()
 
 void AGameBoard::TagPinnedPieces(AChessPiece* Piece)
 {
-	TMap<FIntVector, EBoardTileState> ValidCoordinates = FindValidMoves(Piece);
+	TMap<FIntVector, EBoardTileState> ValidCoordinates = FindValidMovesForPiece(Piece);
 
 	TArray<FIntVector> CoordinatesKeys;
 	ValidCoordinates.GetKeys(CoordinatesKeys);
@@ -385,7 +387,7 @@ void AGameBoard::TagPinnedPieces(AChessPiece* Piece)
 
 bool AGameBoard::CanAttackPiece(AChessPiece* Piece, AChessPiece* Target)
 {
-	TMap<FIntVector, EBoardTileState> ThreatenedTiles = FindValidMoves(Piece);
+	TMap<FIntVector, EBoardTileState> ThreatenedTiles = FindValidMovesForPiece(Piece);
 	TArray<FIntVector> Keys;
 	ThreatenedTiles.GetKeys(Keys);
 
@@ -580,7 +582,7 @@ void AGameBoard::Move(ABoardTile* StartTile, ABoardTile* EndTile, bool bMovingEn
 		RemovePiece(CapturedPiece);
 
 		CapturedPiece->Destroy();
-		EndTile->EmptyPiece();
+		CapturedPiece->GetTile()->EmptyPiece();
 	}
 
 	AChessPiece* MovingPiece = StartTile->GetPiece();
@@ -887,6 +889,9 @@ void AGameBoard::TestForGameStatus()
 	{
 		if (Team->Family != ActiveTeam)
 		{
+			//First, nullify check. Then test for Check in teams.
+			SetTeamInCheck(Team, false);
+
 			for (AChessPiece* Piece : Team->TeamPieces)
 			{
 				if (Piece->IsRoyal() == true && Piece->IsPinned())
@@ -957,7 +962,7 @@ void AGameBoard::TestForGameStatus()
 		//Obtain all the potential movements.
 		for (AChessPiece* Piece : NextPlayer->TeamPieces)
 		{
-			PieceMovements = FindValidMoves(Piece);
+			PieceMovements = FindValidMovesForPiece(Piece);
 			Keys.Empty();
 			PieceMovements.GetKeys(Keys);
 
@@ -975,6 +980,7 @@ void AGameBoard::TestForGameStatus()
 		//for every movement, analyze whether it would put a royal piece at risk.
 		for (FMove Movement : PotentialMovements)
 		{
+
 			bool bValidMove = true;
 
 			//Assign the current movement to PotentialMovement, so CanMoveOnTile apply it.
@@ -988,17 +994,44 @@ void AGameBoard::TestForGameStatus()
 					continue;
 				}
 
-				PieceMovements = FindValidMoves(EnemyPiece);
+				PieceMovements = FindValidMovesForPiece(EnemyPiece);
 				Keys.Empty();
 				PieceMovements.GetKeys(Keys);
 
+				FIntVector LastInterceptingTile = FIntVector(-1337,-1337,-1337);
+
 				for (FIntVector Tile : Keys)
 				{
+					//If the last tested move is in the same straight line as the new tile,
+					if (LastInterceptingTile != FIntVector(-1337,-1337,-1337) && IsInStraightLine(LastInterceptingTile, EnemyPiece->GetPosition(), Tile))
+					{
+						continue;
+					}
+					else
+					{
+						LastInterceptingTile = FIntVector(-1337,-1337,-1337);
+					}
+
 					//If any of the Royal Piece is in range of this piece, move is invalid and we move on to the next piece.
-					if (RoyalPieceLocations.Find(Tile) != INDEX_NONE)
+
+					//If the Tile contains a royal that is not moving
+					if (RoyalPieceLocations.Find(Tile) != INDEX_NONE && PotentialMovement->StartTile != Tile)
 					{
 						bValidMove = false;
 						break;
+					}
+					else if (PotentialMovement->EndTile == Tile)
+					{
+						//If the move is tile contains the end of the movement, invalidate if a royal was moving, otherwise, mark as intercepting.
+						if (PotentialMovement->Piece->IsRoyal())
+						{
+							bValidMove = false;
+							break;
+						}
+						else
+						{
+							LastInterceptingTile = Tile;
+						}
 					}
 				}
 
@@ -1122,8 +1155,19 @@ void AGameBoard::SetTeamInCheck(UTeamPieces* InTeam, bool bNewCheckStatus)
 
 	for (UTeamPieces* Team : GamePieces)
 	{
+		Team->TeamCheckSword->SetActorHiddenInGame(!Team->bInCheck);
+
 		if (Team->bInCheck)
 		{
+			for (AChessPiece* Piece : Team->TeamPieces)
+			{
+				if (Piece->IsRoyal() && Piece->IsPinned())
+				{
+					Team->TeamCheckSword->SetActorLocation(Piece->GetActorLocation());
+					break;
+				}
+			}
+
 			//GameMode->ToggleCheckVisualForPlayers();
 			return;
 		}

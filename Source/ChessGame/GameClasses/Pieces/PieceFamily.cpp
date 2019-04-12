@@ -11,6 +11,8 @@
 
 #include "GameClasses/Pieces/CheckSword.h"
 
+#include "Engine/Texture2D.h"
+
 APieceFamily::APieceFamily()
 {
 }
