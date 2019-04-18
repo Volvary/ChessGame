@@ -19,6 +19,8 @@
 #include "Generic/BoardActionInformations.h"
 #include "Generic/GameResult.h"
 
+#include "ChessHUD.h"
+
 #include "InGameGM.h"
 
 // Sets default values
@@ -105,35 +107,29 @@ void AGameBoard::PrepareGameBoard()
 
 		Family = (i >= FinalBoardSpan * 0.5f) ? FamiliesToUse[0] : FamiliesToUse[1];
 
-		TSubclassOf<AChessPiece> PieceToUse = nullptr;
+		EPieceType PieceType = EPieceType::None;
 
 		switch (GameBoardPieces[i])
 		{
 		case 1:
-			PieceToUse = Family->PawnPiece;			break;
+			PieceType = EPieceType::Pawn;			break;
 		case 2:
-			PieceToUse = Family->RookPiece;			break;
+			PieceType = EPieceType::Rook;			break;
 		case 3:
-			PieceToUse = Family->KnightPiece;		break;
+			PieceType = EPieceType::Knight;			break;
 		case 4:
-			PieceToUse = Family->BishopPiece;		break;
+			PieceType = EPieceType::Bishop;			break;
 		case 5:
-			PieceToUse = Family->QueenPiece;		break;
+			PieceType = EPieceType::Queen;			break;
 		case 6:
-			PieceToUse = Family->KingPiece;			break;
+			PieceType = EPieceType::King;			break;
 		default:
 			break;
 		}
 
-		if (PieceToUse != nullptr)
+		if (PieceType != EPieceType::None)
 		{
-			AChessPiece* Temp = GetWorld()->SpawnActor<AChessPiece>(PieceToUse);
-
-			Temp->SetPieceFamily(Family->FamilyType);
-			Temp->SetTeam((i >= FinalBoardSpan * 0.5f) ? true : false);
-
-			StorePiece(Temp);
-			GameBoard[i]->SetPiece(Temp);
+			SpawnPiece(Family, PieceType, (i >= FinalBoardSpan * 0.5f) ? true : false, GameBoard[i]);
 		}
 	}
 
@@ -157,7 +153,15 @@ void AGameBoard::PrepareGameBoard()
 		}
 	}
 
-	
+	//Finally, find the valid moves for the starting team.
+	for (UTeamPieces* Team : GamePieces)
+	{
+		if (Team->Family == GameMode->GetActivePlayer())
+		{
+			Team->ValidMoves = FindValidMovesForTeam(Team);
+			break;
+		}
+	}
 }
 
 ABoardTile* AGameBoard::GetTileAt(int X, int Y, int Z /*= 0*/)
@@ -329,6 +333,187 @@ TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMovesForPiece(AChessPiece
 
 	return ValidCoordinates;
 }
+
+TArray<FMove> AGameBoard::FindValidMovesForTeam(UTeamPieces* TeamToTest)
+{
+	AChessPiece* ThreatenedRoyalPiece = nullptr;
+	TArray<FIntVector> RoyalPieceLocations;
+
+	TArray<AChessPiece*> EnemyPieces;
+	TArray<FMove> PotentialMovements;	//Used to store Friendly moves that could be done.
+	TArray<FMove> ValidMovements;		//Used to store validated moves.
+
+	TMap<FIntVector, EBoardTileState> PieceMovements;	//Contains the tiles a piece can move to.
+	TArray<FIntVector> Keys;
+	EBoardTileState* TileStatus;
+
+	PotentialMovement = nullptr;
+
+	for (UTeamPieces* Team : GamePieces)
+	{
+		if (Team->Family != TeamToTest->Family)
+		{
+			EnemyPieces.Append(Team->TeamPieces);
+		}
+	}
+
+	//Get the threatened royal piece.
+	for (AChessPiece* Piece : TeamToTest->TeamPieces)
+	{
+		if (Piece->IsRoyal())
+		{
+
+			if (Piece->IsPinned())
+			{
+				//If more than one royal piece is pinned, player is defeated.
+				if (ThreatenedRoyalPiece != nullptr)
+				{
+					GameMode->SetGameRunningStatus(false);
+					GameMode->EndGame(EGameResult::Checkmate);
+					return ValidMovements;
+				}
+
+				ThreatenedRoyalPiece = Piece;
+			}
+
+			RoyalPieceLocations.Add(Piece->GetPosition());
+		}
+	}
+
+	//Obtain all the potential movements.
+	for (AChessPiece* Piece : TeamToTest->TeamPieces)
+	{
+		PieceMovements = FindValidMovesForPiece(Piece);
+		Keys.Empty();
+		PieceMovements.GetKeys(Keys);
+
+		for (FIntVector Tile : Keys)
+		{
+			TileStatus = PieceMovements.Find(Tile);
+
+			if (TileStatus != nullptr && (*TileStatus == EBoardTileState::ValidMove || *TileStatus == EBoardTileState::Capture))
+			{
+				PotentialMovements.Add(FMove(Piece, Piece->GetPosition(), Tile));
+			}
+		}
+	}
+
+	//for every movement, analyze whether it would put a royal piece at risk.
+	for (FMove Movement : PotentialMovements)
+	{
+
+		bool bValidMove = true;
+
+		//Assign the current movement to PotentialMovement, so CanMoveOnTile apply it.
+		PotentialMovement = &Movement;
+
+		for (AChessPiece* EnemyPiece : EnemyPieces)
+		{
+			//If the current movement would kill this piece, ignore the piece.
+			if (Movement.EndTile == EnemyPiece->GetPosition())
+			{
+				continue;
+			}
+
+			PieceMovements = FindValidMovesForPiece(EnemyPiece);
+			Keys.Empty();
+			PieceMovements.GetKeys(Keys);
+
+			FIntVector LastInterceptingTile = FIntVector(-1337, -1337, -1337);
+
+			for (FIntVector Tile : Keys)
+			{
+				//If the last tested move is in the same straight line as the new tile,
+				if (LastInterceptingTile != FIntVector(-1337, -1337, -1337) && IsInStraightLine(LastInterceptingTile, EnemyPiece->GetPosition(), Tile))
+				{
+					continue;
+				}
+				else
+				{
+					LastInterceptingTile = FIntVector(-1337, -1337, -1337);
+				}
+
+				//If any of the Royal Piece is in range of this piece, move is invalid and we move on to the next piece.
+
+				//If the Tile contains a royal that is not moving
+				if (RoyalPieceLocations.Find(Tile) != INDEX_NONE && PotentialMovement->StartTile != Tile)
+				{
+					bValidMove = false;
+					break;
+				}
+				else if (PotentialMovement->EndTile == Tile)
+				{
+					//If the move is tile contains the end of the movement, invalidate if a royal was moving, otherwise, mark as intercepting.
+					if (PotentialMovement->Piece->IsRoyal())
+					{
+						bValidMove = false;
+						break;
+					}
+					else
+					{
+						LastInterceptingTile = Tile;
+					}
+				}
+			}
+
+			//Stop testing if one tile already invalidated the move.
+			if (!bValidMove)
+			{
+				break;
+			}
+		}
+
+		if (bValidMove)
+		{
+			ValidMovements.Add(Movement);
+		}
+	}
+
+	return ValidMovements;
+}
+
+#pragma optimize("",off)
+void AGameBoard::SpawnPiece(APieceFamily* Family, EPieceType PieceToSpawn, bool bIsBlackTeam, ABoardTile* Tile)
+{
+	if (Family == nullptr || Tile == nullptr || PieceToSpawn == EPieceType::None)
+	{
+		UE_LOG(LogBoard, Error, TEXT("SpawnPiece was called but some information was missing."));
+		return;
+	}
+
+	TSubclassOf<AChessPiece> PieceToUse = nullptr;
+
+	switch (PieceToSpawn)
+	{
+	case EPieceType::Pawn:
+		PieceToUse = Family->PawnPiece;			break;
+	case EPieceType::Rook:
+		PieceToUse = Family->RookPiece;			break;
+	case EPieceType::Knight:
+		PieceToUse = Family->KnightPiece;		break;
+	case EPieceType::Bishop:
+		PieceToUse = Family->BishopPiece;		break;
+	case EPieceType::Queen:
+		PieceToUse = Family->QueenPiece;		break;
+	case EPieceType::King:
+		PieceToUse = Family->KingPiece;			break;
+	default:
+		break;
+	}
+
+	if (PieceToUse != nullptr)
+	{
+		AChessPiece* Temp = GetWorld()->SpawnActor<AChessPiece>(PieceToUse);
+
+		Temp->SetPieceFamily(Family->FamilyType);
+		Temp->SetTeam(bIsBlackTeam);
+
+		StorePiece(Temp);
+		Tile->SetPiece(Temp);
+	}
+}
+#pragma optimize("",on)
+///Auto-generated VA pragma optimize for debug.
 
 void AGameBoard::TagForMovement()
 {
@@ -603,7 +788,9 @@ void AGameBoard::Move(ABoardTile* StartTile, ABoardTile* EndTile, bool bMovingEn
 		//If a pawn has reached the other end of the board, promote it.
 		if (EndTile->GetPosition().X == 0 || EndTile->GetPosition().X == GameBoardSize - 1)
 		{
-			//GameMode->ShowPromotionScreen();
+			AChessHUD* HUD = Cast<AChessHUD>(GetWorld()->GetFirstPlayerController()->GetHUD());
+			HUD->ShowPromotionInterface();
+			
 			bWaitForPromotion = true;
 		}
 
@@ -916,136 +1103,12 @@ void AGameBoard::TestForGameStatus()
 
 	if(NextPlayer != nullptr){
 
-		AChessPiece* ThreatenedRoyalPiece = nullptr;
-		TArray<FIntVector> RoyalPieceLocations;
+		TArray<FMove> ValidMovements = FindValidMovesForTeam(NextPlayer);
 
-		TArray<AChessPiece*> EnemyPieces;
-		TArray<FMove> PotentialMovements;	//Used to store Friendly moves that could be done.
-		TArray<FMove> ValidMovements;		//Used to store validated moves.
-
-		TMap<FIntVector, EBoardTileState> PieceMovements;	//Contains the tiles a piece can move to.
-		TArray<FIntVector> Keys;
-		EBoardTileState* TileStatus;
-
-		PotentialMovement = nullptr;
-		
-		for (UTeamPieces* Team : GamePieces)
+		//If the game has finished as a part of FindValidMovesForTeam()
+		if (!GameMode->IsGameRunning())
 		{
-			if (Team->Family != NextPlayer->Family)
-			{
-				EnemyPieces.Append(Team->TeamPieces);
-			}
-		}
-
-		//Get the threatened royal piece.
-		for (AChessPiece* Piece : NextPlayer->TeamPieces)
-		{
-			if (Piece->IsRoyal())
-			{
-				
-				if (Piece->IsPinned())
-				{
-					//If more than one royal piece is pinned, player is defeated.
-					if(ThreatenedRoyalPiece != nullptr)
-					{
-						GameMode->EndGame(EGameResult::Checkmate);
-						return;
-					}
-
-					ThreatenedRoyalPiece = Piece;
-				}
-
-					RoyalPieceLocations.Add(Piece->GetPosition());
-			}
-		}
-
-		//Obtain all the potential movements.
-		for (AChessPiece* Piece : NextPlayer->TeamPieces)
-		{
-			PieceMovements = FindValidMovesForPiece(Piece);
-			Keys.Empty();
-			PieceMovements.GetKeys(Keys);
-
-			for (FIntVector Tile : Keys)
-			{
-				TileStatus = PieceMovements.Find(Tile);
-
-				if (TileStatus != nullptr && (*TileStatus == EBoardTileState::ValidMove || *TileStatus == EBoardTileState::Capture) )
-				{
-					PotentialMovements.Add(FMove(Piece, Piece->GetPosition(), Tile));
-				}
-			}
-		}
-
-		//for every movement, analyze whether it would put a royal piece at risk.
-		for (FMove Movement : PotentialMovements)
-		{
-
-			bool bValidMove = true;
-
-			//Assign the current movement to PotentialMovement, so CanMoveOnTile apply it.
-			PotentialMovement = &Movement;
-
-			for(AChessPiece* EnemyPiece : EnemyPieces)
-			{
-				//If the current movement would kill this piece, ignore the piece.
-				if (Movement.EndTile == EnemyPiece->GetPosition())
-				{
-					continue;
-				}
-
-				PieceMovements = FindValidMovesForPiece(EnemyPiece);
-				Keys.Empty();
-				PieceMovements.GetKeys(Keys);
-
-				FIntVector LastInterceptingTile = FIntVector(-1337,-1337,-1337);
-
-				for (FIntVector Tile : Keys)
-				{
-					//If the last tested move is in the same straight line as the new tile,
-					if (LastInterceptingTile != FIntVector(-1337,-1337,-1337) && IsInStraightLine(LastInterceptingTile, EnemyPiece->GetPosition(), Tile))
-					{
-						continue;
-					}
-					else
-					{
-						LastInterceptingTile = FIntVector(-1337,-1337,-1337);
-					}
-
-					//If any of the Royal Piece is in range of this piece, move is invalid and we move on to the next piece.
-
-					//If the Tile contains a royal that is not moving
-					if (RoyalPieceLocations.Find(Tile) != INDEX_NONE && PotentialMovement->StartTile != Tile)
-					{
-						bValidMove = false;
-						break;
-					}
-					else if (PotentialMovement->EndTile == Tile)
-					{
-						//If the move is tile contains the end of the movement, invalidate if a royal was moving, otherwise, mark as intercepting.
-						if (PotentialMovement->Piece->IsRoyal())
-						{
-							bValidMove = false;
-							break;
-						}
-						else
-						{
-							LastInterceptingTile = Tile;
-						}
-					}
-				}
-
-				//Stop testing if one tile already invalidated the move.
-				if (!bValidMove)
-				{
-					break;
-				}
-			}
-
-			if (bValidMove)
-			{
-				ValidMovements.Add(Movement);
-			}
+			return;
 		}
 
 		//If no movements could be found without threatening the royal,
@@ -1128,6 +1191,25 @@ TArray<AChessPiece*> AGameBoard::GetTeamPieces(bool bBlackTeam)
 	}
 
 	return Out;
+}
+
+void AGameBoard::PromotePiece(EPieceType PromotedType)
+{
+	ABoardTile* PromotedTile = MostRecentMove->GetTile();
+	PromotedTile->EmptyPiece();
+
+
+	SpawnPiece(GameMode->GetSpecificFamily(MostRecentMove->GetPieceFamily()), PromotedType, 
+		MostRecentMove->IsBlackTeam(), PromotedTile);
+
+	RemovePiece(MostRecentMove);
+	MostRecentMove->Destroy();
+
+	AChessHUD* HUD = Cast<AChessHUD>(GetWorld()->GetFirstPlayerController()->GetHUD());
+	HUD->HidePromotionInterface();
+
+	//Now that our piece has been promoted, test for game state, using the new replacement in the tests.
+	TestForGameStatus();
 }
 
 void AGameBoard::ClearPinned(EPieceFamilyType FamilyToIgnore /*= EPieceFamilyType::None*/)

@@ -16,6 +16,8 @@ void AInGameGM::BeginPlay()
 	{
 		GameBoard->SetGameMode(this);
 		GameBoard->PrepareGameBoard();
+
+		bGameIsRunning = true;
 	}
 }
 
@@ -64,6 +66,7 @@ TArray<APieceFamily*> AInGameGM::GetPieceFamiliesToUse()
 	{
 		Out.Add(Family);
 		Players.Add(Family->FamilyType);
+		PlayersFamily.Add(Family);
 		ActivePlayer = Family->FamilyType;
 	}
 
@@ -72,7 +75,28 @@ TArray<APieceFamily*> AInGameGM::GetPieceFamiliesToUse()
 	{
 		Out.Add(Family);
 		Players.Add(Family->FamilyType);
+		PlayersFamily.Add(Family);
 	}
 
 	return Out;
+}
+
+APieceFamily* AInGameGM::GetSpecificFamily(EPieceFamilyType FamilyType)
+{
+	APieceFamily* Out = nullptr;
+
+	for (APieceFamily* Family : PlayersFamily)
+	{
+		if (Family->FamilyType == FamilyType)
+		{
+			Out = Family;
+		}
+	}
+
+	return Out;
+}
+
+void AInGameGM::PromotePiece(EPieceType Promotion)
+{
+	GameBoard->PromotePiece(Promotion);
 }

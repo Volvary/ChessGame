@@ -13,3 +13,16 @@ enum class EPieceMovement : uint8
 };
 
 ENUM_CLASS_FLAGS(EPieceMovement);
+
+///Used solely for Interface To Code translation.
+UENUM(BlueprintType)
+enum class EPieceType : uint8
+{
+	None,
+	King,
+	Queen,
+	Rook,
+	Bishop,
+	Knight,
+	Pawn
+};

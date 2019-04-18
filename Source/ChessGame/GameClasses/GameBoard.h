@@ -11,6 +11,8 @@
 
 #include "GameClasses/Pieces/TeamPieces.h"
 
+#include "GameClasses/Pieces/PieceMovement.h"
+
 #include "GameBoard.generated.h"
 
 class ABoardTile;
@@ -24,6 +26,8 @@ class AKingPiece;
 class AQueenPiece;
 
 class AInGameGM;
+
+class APieceFamily;
 
 UCLASS()
 class CHESSGAME_API AGameBoard : public AActor
@@ -79,23 +83,6 @@ protected:
 
 	void SelectTile(ABoardTile* NewSelected);
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
-	void SetGameMode(AInGameGM* GM);
-
-	void PrepareGameBoard();
-
-	ABoardTile* GetTileAt(int X, int Y, int Z = 0);
-	ABoardTile* GetTileAt(FIntVector Position);
-
-	//UFUNCTION since it is bound to Delegates.
-	UFUNCTION()
-	void ClickedOnTile(ABoardTile* ClickedTile);
-
-	TMap<FIntVector, EBoardTileState> FindValidMovesForPiece(AChessPiece* PieceToTest = nullptr);
-
 	void TagForMovement();
 
 	void TagPinnedPieces(AChessPiece* Piece);
@@ -105,7 +92,7 @@ public:
 	bool CanBeMovedOn(ABoardTile* TileToMoveOn, AChessPiece* MovingPiece);
 
 	EBoardTileState CheckMovementOnTile(
-		ABoardTile* RequestedTile, AChessPiece* Piece, bool bStraightLine, EBoardTileState OccupiedTileResult = EBoardTileState::Capture, 
+		ABoardTile* RequestedTile, AChessPiece* Piece, bool bStraightLine, EBoardTileState OccupiedTileResult = EBoardTileState::Capture,
 		EBoardTileState UnoccupiedTileResult = EBoardTileState::ValidMove, bool bHideAlliedFailure = false);
 	EBoardTileState CheckMovementOnTile(
 		ABoardTile* RequestedTile, AChessPiece* Piece, EBoardTileState OccupiedTileResult = EBoardTileState::Capture,
@@ -128,10 +115,33 @@ public:
 	void StorePiece(AChessPiece* PieceToStore);
 
 	void RemovePiece(AChessPiece* PieceToRemove);
-	
-	TArray<AChessPiece*> GetTeamPieces(bool bBlackTeam);
 
 	void ClearPinned(EPieceFamilyType FamilyToIgnore = EPieceFamilyType::None);
 
 	void SetTeamInCheck(UTeamPieces* Team, bool bNewCheckStatus);
+
+	TMap<FIntVector, EBoardTileState> FindValidMovesForPiece(AChessPiece* PieceToTest = nullptr);
+
+	TArray<FMove> FindValidMovesForTeam(UTeamPieces* TeamToTest);
+
+	void SpawnPiece(APieceFamily* Family, EPieceType PieceToSpawn, bool bIsBlackTeam, ABoardTile* Tile);
+
+public:	
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	void SetGameMode(AInGameGM* GM);
+
+	void PrepareGameBoard();
+
+	ABoardTile* GetTileAt(int X, int Y, int Z = 0);
+	ABoardTile* GetTileAt(FIntVector Position);
+
+	//UFUNCTION since it is bound to Delegates.
+	UFUNCTION()
+	void ClickedOnTile(ABoardTile* ClickedTile);
+	
+	TArray<AChessPiece*> GetTeamPieces(bool bBlackTeam);
+
+	void PromotePiece(EPieceType PromotedType);
 };

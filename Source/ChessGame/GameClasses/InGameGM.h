@@ -9,6 +9,8 @@
 
 #include "GameClasses/Pieces/PieceFamilyType.h"
 
+#include "GameClasses/Pieces/PieceMovement.h"
+
 #include "InGameGM.generated.h"
 
 class AGameBoard;
@@ -41,7 +43,11 @@ protected:
 
 	TArray<EPieceFamilyType> Players;
 
+	TArray<APieceFamily*> PlayersFamily;
+
 	bool bBlackIsPlaying = false;
+
+	bool bGameIsRunning = false;
 
 public:
 	void BeginPlay();
@@ -57,4 +63,12 @@ public:
 	void EndGame(EGameResult Result);
 
 	TArray<APieceFamily*> GetPieceFamiliesToUse();
+
+	APieceFamily* GetSpecificFamily(EPieceFamilyType FamilyType);
+
+	bool IsGameRunning(){return bGameIsRunning;}
+
+	void SetGameRunningStatus(bool bNewStatus){ bGameIsRunning = bNewStatus;}
+
+	void PromotePiece(EPieceType Promotion);
 };
