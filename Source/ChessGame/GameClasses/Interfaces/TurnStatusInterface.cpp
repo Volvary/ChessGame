@@ -2,3 +2,7 @@
 
 #include "TurnStatusInterface.h"
 
+void UTurnStatusInterface::UpdateActivePlayer_Implementation(const FText& Name)
+{
+
+}

@@ -4,19 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "TurnStatusInterface.generated.h"
+#include "QuitMenu.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class CHESSGAME_API UTurnStatusInterface : public UUserWidget
+class CHESSGAME_API UQuitMenu : public UUserWidget
 {
 	GENERATED_BODY()
 	
-
-public:
-
-	UFUNCTION(BlueprintNativeEvent)
-	void UpdateActivePlayer(const FText& Name);
 };

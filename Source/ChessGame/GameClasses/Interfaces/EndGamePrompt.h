@@ -4,13 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "TurnStatusInterface.generated.h"
+
+#include "Generic/GameResult.h"
+
+#include "EndGamePrompt.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class CHESSGAME_API UTurnStatusInterface : public UUserWidget
+class CHESSGAME_API UEndGamePrompt : public UUserWidget
 {
 	GENERATED_BODY()
 	
@@ -18,5 +21,5 @@ class CHESSGAME_API UTurnStatusInterface : public UUserWidget
 public:
 
 	UFUNCTION(BlueprintNativeEvent)
-	void UpdateActivePlayer(const FText& Name);
+	void SetGameResult(EGameResult Result, const FText& Winner);
 };

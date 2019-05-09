@@ -276,5 +276,8 @@
 			"Name": "XCodeSourceCodeAccess",
 			"Enabled": false
 		}
+	],
+	"TargetPlatforms": [
+		"WindowsNoEditor"
 	]
 }

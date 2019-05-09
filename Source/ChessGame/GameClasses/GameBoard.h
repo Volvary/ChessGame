@@ -100,7 +100,9 @@ protected:
 
 	bool IsInStraightLine(FIntVector TileToTest, FIntVector StartTile, FIntVector EndTile);
 
-	void Move(ABoardTile* StartTile, ABoardTile* EndTile, bool bMovingEnPassant = false);
+	void Move(FMove UsedMove, bool bMovingEnPassant = false);
+
+	FMove GetMoveFromTiles(ABoardTile* StartTile, ABoardTile* EndTile);
 
 	TMap<FIntVector, EBoardTileState> TestPawnMovement(FIntVector Position, AChessPiece* Piece);
 	TMap<FIntVector, EBoardTileState> TestRookMovement(FIntVector Position, AChessPiece* Piece);
@@ -120,11 +122,16 @@ protected:
 
 	void SetTeamInCheck(UTeamPieces* Team, bool bNewCheckStatus);
 
-	TMap<FIntVector, EBoardTileState> FindValidMovesForPiece(AChessPiece* PieceToTest = nullptr);
+	TMap<FIntVector, EBoardTileState> FindValidMovesForPiece(AChessPiece* PieceToTest = nullptr, bool bTestingForThreaten = false);
 
 	TArray<FMove> FindValidMovesForTeam(UTeamPieces* TeamToTest);
 
 	void SpawnPiece(APieceFamily* Family, EPieceType PieceToSpawn, bool bIsBlackTeam, ABoardTile* Tile);
+
+	//Returns a list of Coordinates threatened by other teams.
+	TArray<FIntVector> GetTilesThreatened(bool IsBlackTeamRequesting);
+
+	AChessPiece* FindCastlingPartner(AChessPiece* RoyalPiece, FIntVector MovementEndTile);
 
 public:	
 	// Called every frame

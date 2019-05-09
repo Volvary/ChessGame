@@ -14,6 +14,9 @@ class UUserWidget;
 class UTurnStatusInterface;
 class UGameStatusInterface;
 class UPawnPromotionInterface;
+class USettingsMenu;
+class UQuitMenu;
+class UEndGamePrompt;
 
 /**
  * 
@@ -33,6 +36,15 @@ protected:
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	TSubclassOf<UPawnPromotionInterface> PawnPromotionInterfaceClass = nullptr;
 
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
+	TSubclassOf<USettingsMenu> SettingsMenuClass = nullptr;
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
+	TSubclassOf<UQuitMenu> QuitMenuClass = nullptr;
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
+	TSubclassOf<UEndGamePrompt> EndGamePromptClass = nullptr;
+
 	TMap<TSubclassOf<UUserWidget>, UUserWidget*> InterfaceMap;
 
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
@@ -46,7 +58,33 @@ protected:
 
 public:
 
+	UFUNCTION(BlueprintCallable)
 	void ShowPromotionInterface();
 
 	void HidePromotionInterface();
+
+	UFUNCTION(BlueprintCallable)
+	UTurnStatusInterface* ShowTurnStatusInterface();
+
+	void HideTurnStatusInterface();
+
+	UFUNCTION(BlueprintCallable)
+	USettingsMenu* ShowSettingsMenu();
+
+	void HideSettingsMenu();
+
+	UFUNCTION(BlueprintCallable)
+	UGameStatusInterface* ShowGameStatusInterface();
+
+	void HideGameStatusInterface();
+
+	UFUNCTION(BlueprintCallable)
+	void ShowQuitGameMenu();
+
+	void HideQuitGameMenu();
+
+	UFUNCTION(BlueprintCallable)
+	UEndGamePrompt* ShowEndGamePrompt();
+
+	void HideEndGamePrompt();
 };

@@ -62,7 +62,18 @@ void AGameBoard::PrepareGameBoard()
 		}
 	}
 
-	int GameBoardPieces[] = {	
+	/*int GameBoardPieces[] = {
+		2,3,4,6,5,4,3,2,
+		1,1,1,1,1,1,1,1,
+		0,0,0,0,5,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,
+		1,1,0,0,0,1,1,1,
+		2,0,0,6,0,0,0,2
+	};*/
+
+	int GameBoardPieces[] = {
 		2,3,4,6,5,4,3,2,
 		1,1,1,1,1,1,1,1,
 		0,0,0,0,0,0,0,0,
@@ -228,15 +239,18 @@ void AGameBoard::ClickedOnTile(ABoardTile* ClickedTile)
 				{
 					EBoardTileState TileState = *WantedTileState;
 
-					if (TileState == EBoardTileState::Capture || TileState == EBoardTileState::ValidMove)
+					if (TileState == EBoardTileState::Capture || TileState == EBoardTileState::ValidMove 
+						|| TileState == EBoardTileState::NonThreatening || TileState == EBoardTileState::Castling)
 					{
+						FMove UsedMove = GetMoveFromTiles(SelectedTile, ClickedTile);
+
 						if (TileState == EBoardTileState::Capture && ClickedTile->GetPiece() == nullptr)
 						{
-							Move(SelectedTile, ClickedTile, true);
+							Move(UsedMove, true);
 						}
 						else
 						{
-							Move(SelectedTile, ClickedTile);
+							Move(UsedMove);
 						}
 
 						return;
@@ -263,7 +277,8 @@ void AGameBoard::ClickedOnTile(ABoardTile* ClickedTile)
 	}
 }
 
-TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMovesForPiece(AChessPiece* PieceToTest)
+#pragma optimize("",off)
+TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMovesForPiece(AChessPiece* PieceToTest, bool bTestingForThreaten)
 {
 
 	TMap<FIntVector, EBoardTileState> ValidCoordinates;
@@ -284,8 +299,6 @@ TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMovesForPiece(AChessPiece
 	{
 		TileToTest = PieceToTest->GetTile();
 	}
-
-	
 
 	AChessPiece* Piece = TileToTest->GetPiece();
 
@@ -317,7 +330,10 @@ TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMovesForPiece(AChessPiece
 					ValidCoordinates.Append(TestKnightMovement(TileToTest->GetPosition(), Piece));
 					break;
 				case EPieceMovement::Castling:
-					ValidCoordinates.Append(TestCastlingMovement(TileToTest->GetPosition(), Piece));
+					if (!bTestingForThreaten)
+					{
+						ValidCoordinates.Append(TestCastlingMovement(TileToTest->GetPosition(), Piece));
+					}
 					break;
 				}
 			}
@@ -327,9 +343,6 @@ TMap<FIntVector, EBoardTileState> AGameBoard::FindValidMovesForPiece(AChessPiece
 	{
 		ValidCoordinates.Add(TileToTest->GetPosition(), EBoardTileState::Failed);
 	}
-
-	TArray<FIntVector> CoordinatesKeys;
-	ValidCoordinates.GetKeys(CoordinatesKeys);
 
 	return ValidCoordinates;
 }
@@ -391,9 +404,22 @@ TArray<FMove> AGameBoard::FindValidMovesForTeam(UTeamPieces* TeamToTest)
 		{
 			TileStatus = PieceMovements.Find(Tile);
 
-			if (TileStatus != nullptr && (*TileStatus == EBoardTileState::ValidMove || *TileStatus == EBoardTileState::Capture))
+			if (TileStatus != nullptr && (*TileStatus == EBoardTileState::ValidMove || *TileStatus == EBoardTileState::Capture 
+				|| *TileStatus == EBoardTileState::NonThreatening || *TileStatus == EBoardTileState::Castling))
 			{
-				PotentialMovements.Add(FMove(Piece, Piece->GetPosition(), Tile));
+				FMove Temp = FMove(Piece, Piece->GetPosition(), Tile);
+				
+				if (*TileStatus == EBoardTileState::Castling)
+				{
+					Temp.CastlingPartner = FindCastlingPartner(Piece, Temp.EndTile);
+
+					if (Temp.CastlingPartner == nullptr)
+					{
+						UE_LOG(LogBoard, Error, TEXT("A Castling move was created but the Partner piece could not be found."));
+					}
+				}
+
+				PotentialMovements.Add(Temp);
 			}
 		}
 	}
@@ -433,10 +459,12 @@ TArray<FMove> AGameBoard::FindValidMovesForTeam(UTeamPieces* TeamToTest)
 					LastInterceptingTile = FIntVector(-1337, -1337, -1337);
 				}
 
+				EBoardTileState TileState = *PieceMovements.Find(Tile);
+
 				//If any of the Royal Piece is in range of this piece, move is invalid and we move on to the next piece.
 
 				//If the Tile contains a royal that is not moving
-				if (RoyalPieceLocations.Find(Tile) != INDEX_NONE && PotentialMovement->StartTile != Tile)
+				if (RoyalPieceLocations.Find(Tile) != INDEX_NONE && PotentialMovement->StartTile != Tile && (TileState == EBoardTileState::Capture || TileState == EBoardTileState::ValidMove) )
 				{
 					bValidMove = false;
 					break;
@@ -444,7 +472,7 @@ TArray<FMove> AGameBoard::FindValidMovesForTeam(UTeamPieces* TeamToTest)
 				else if (PotentialMovement->EndTile == Tile)
 				{
 					//If the move is tile contains the end of the movement, invalidate if a royal was moving, otherwise, mark as intercepting.
-					if (PotentialMovement->Piece->IsRoyal())
+					if (PotentialMovement->Piece->IsRoyal() && (TileState != EBoardTileState::NonThreatening) )
 					{
 						bValidMove = false;
 						break;
@@ -471,7 +499,8 @@ TArray<FMove> AGameBoard::FindValidMovesForTeam(UTeamPieces* TeamToTest)
 
 	return ValidMovements;
 }
-
+#pragma optimize("",on)
+///Auto-generated VA pragma optimize for debug.
 #pragma optimize("",off)
 void AGameBoard::SpawnPiece(APieceFamily* Family, EPieceType PieceToSpawn, bool bIsBlackTeam, ABoardTile* Tile)
 {
@@ -512,6 +541,63 @@ void AGameBoard::SpawnPiece(APieceFamily* Family, EPieceType PieceToSpawn, bool 
 		Tile->SetPiece(Temp);
 	}
 }
+
+TArray<FIntVector> AGameBoard::GetTilesThreatened(bool IsBlackTeamRequesting)
+{
+	TArray<FIntVector> Out;
+
+	TArray<AChessPiece*> EnemyPieces = GetTeamPieces(!IsBlackTeamRequesting);
+	TMap<FIntVector, EBoardTileState> MoveTiles;
+
+	TArray<FIntVector> MoveCoords;
+	EBoardTileState* TileStatus;
+
+
+	for (AChessPiece* Enemy : EnemyPieces)
+	{
+		MoveTiles = FindValidMovesForPiece(Enemy, true);
+
+		MoveTiles.GetKeys(MoveCoords);
+
+		for (FIntVector Move : MoveCoords)
+		{
+			TileStatus = MoveTiles.Find(Move);
+
+			if (TileStatus != nullptr)
+			{
+				if (*TileStatus == EBoardTileState::Capture || *TileStatus == EBoardTileState::Threaten || *TileStatus == EBoardTileState::ValidMove)
+				{
+					Out.Add(Move);
+				}
+			}
+		}
+	}
+
+	return Out;
+}
+
+AChessPiece* AGameBoard::FindCastlingPartner(AChessPiece* RoyalPiece, FIntVector MovementEndTile)
+{
+	TArray<AChessPiece*> TeamPieces = GetTeamPieces(RoyalPiece->IsBlackTeam());
+
+	for (AChessPiece* TeamPiece : TeamPieces)
+	{
+		if ((bool)(TeamPiece->GetAvailableMovement() & EPieceMovement::Castling))
+		{
+			if (IsInStraightLine(MovementEndTile, RoyalPiece->GetPosition(), TeamPiece->GetPosition()))
+			{
+				if ((MovementEndTile.Y < RoyalPiece->GetPosition().Y && TeamPiece->GetPosition().Y < RoyalPiece->GetPosition().Y) ||
+					(MovementEndTile.Y > RoyalPiece->GetPosition().Y && TeamPiece->GetPosition().Y > RoyalPiece->GetPosition().Y))
+				{
+					return TeamPiece;
+				}
+			}
+		}
+	}
+
+	return nullptr;
+}
+
 #pragma optimize("",on)
 ///Auto-generated VA pragma optimize for debug.
 
@@ -743,9 +829,13 @@ bool AGameBoard::IsInStraightLine(FIntVector TileToTest, FIntVector StartTile, F
 #pragma optimize("",on)
 ///Auto-generated VA pragma optimize for debug.
 
-void AGameBoard::Move(ABoardTile* StartTile, ABoardTile* EndTile, bool bMovingEnPassant)
+void AGameBoard::Move(FMove UsedMove, bool bMovingEnPassant)
 {
-	if (StartTile == nullptr || EndTile == nullptr)
+
+	ABoardTile* StartTile = GetTileAt(UsedMove.StartTile);
+	ABoardTile* EndTile = GetTileAt(UsedMove.EndTile);
+
+	if ( StartTile == nullptr || EndTile == nullptr)
 	{
 		UE_LOG(LogBoard, Error, TEXT("Move was called but one of the params was nullptr. Expecting valid info. Canceling."));
 		return;
@@ -770,10 +860,21 @@ void AGameBoard::Move(ABoardTile* StartTile, ABoardTile* EndTile, bool bMovingEn
 		CapturedPiece->GetTile()->EmptyPiece();
 	}
 
-	AChessPiece* MovingPiece = StartTile->GetPiece();
+	AChessPiece* MovingPiece = GetTileAt(UsedMove.StartTile)->GetPiece();
 	MovingPiece->SetHasMoved(true);
 	EndTile->SetPiece(MovingPiece);
 	StartTile->EmptyPiece();
+
+	if (UsedMove.CastlingPartner != nullptr)
+	{
+		FIntVector Direction = UsedMove.StartTile - UsedMove.EndTile;
+		FIntVector CastledPosition = UsedMove.EndTile + FIntVector(0,1,0) * (Direction.Y > 1 ? 1 : -1);
+
+		ABoardTile* CastlingStartTile = UsedMove.CastlingPartner->GetTile();
+
+		GetTileAt(CastledPosition)->SetPiece(UsedMove.CastlingPartner);
+		CastlingStartTile->EmptyPiece();
+	}
 
 	if (MostRecentMove != nullptr)
 	{
@@ -811,6 +912,32 @@ void AGameBoard::Move(ABoardTile* StartTile, ABoardTile* EndTile, bool bMovingEn
 	}
 }
 
+#pragma optimize("",off)
+FMove AGameBoard::GetMoveFromTiles(ABoardTile* StartTile, ABoardTile* EndTile)
+{
+	FMove Out;
+
+	for (UTeamPieces* Team : GamePieces)
+	{
+		if (Team->Family == StartTile->GetPiece()->GetPieceFamily())
+		{
+			for (FMove Move : Team->ValidMoves)
+			{
+				if (Move.StartTile == StartTile->GetPosition() && Move.EndTile == EndTile->GetPosition())
+				{
+					Out = Move;
+					break;
+				}
+			}
+			break;
+		}
+	}
+
+	return Out;
+}
+#pragma optimize("",on)
+///Auto-generated VA pragma optimize for debug.
+
 TMap<FIntVector, EBoardTileState> AGameBoard::TestPawnMovement(FIntVector Position, AChessPiece* Piece)
 {
 	TMap<FIntVector, EBoardTileState> Out;
@@ -823,7 +950,7 @@ TMap<FIntVector, EBoardTileState> AGameBoard::TestPawnMovement(FIntVector Positi
 	
 	//First test moving forward.
 	RequestedTile = GetTileAt(Position.X + Direction, Position.Y);
-	TileResult = CheckMovementOnTile(RequestedTile, Piece, EBoardTileState::Failed, EBoardTileState::ValidMove);
+	TileResult = CheckMovementOnTile(RequestedTile, Piece, EBoardTileState::Failed, EBoardTileState::NonThreatening);
 	
 	if (TileResult != EBoardTileState::None)
 	{
@@ -843,13 +970,13 @@ TMap<FIntVector, EBoardTileState> AGameBoard::TestPawnMovement(FIntVector Positi
 		}
 
 		RequestedTile = GetTileAt(Position.X + Direction, Position.Y + i);
-		TileResult = CheckMovementOnTile(RequestedTile, Piece, EBoardTileState::Capture, EBoardTileState::ValidMove, true);
+		TileResult = CheckMovementOnTile(RequestedTile, Piece, EBoardTileState::Capture, EBoardTileState::Threaten, true);
 
 		if (TileResult == EBoardTileState::Capture)
 		{
 			Out.Add(RequestedTile->GetPosition(), TileResult);
 		}
-		else if (TileResult == EBoardTileState::ValidMove)
+		else if (TileResult == EBoardTileState::Threaten)
 		{
 			//If the tile ahead is clear, test the tile next to the piece to see if it contains a piece weak to En Passant.
 			ABoardTile* TemporaryTile = GetTileAt(Position.X, Position.Y + i);
@@ -859,6 +986,10 @@ TMap<FIntVector, EBoardTileState> AGameBoard::TestPawnMovement(FIntVector Positi
 			{
 				//Tag the RequestedTile regardless as it will be the tile the pawn will move to.
 				Out.Add(RequestedTile->GetPosition(), TemporaryResult);
+			}
+			else
+			{
+				Out.Add(RequestedTile->GetPosition(), EBoardTileState::Threaten);
 			}
 		}
 	}
@@ -903,9 +1034,14 @@ TMap<FIntVector, EBoardTileState> AGameBoard::TestRookMovement(FIntVector Positi
 			if (TileResult != EBoardTileState::None)
 			{
 				Out.Add(RequestedTile->GetPosition(), TileResult);
+
+				//If the tile is home to any piece apart from the potential move.
 				if (TileResult == EBoardTileState::Failed || TileResult == EBoardTileState::Capture)
 				{
-					break;
+					if (PotentialMovement == nullptr || PotentialMovement != nullptr && PotentialMovement->StartTile != RequestedTile->GetPosition())
+					{
+						break;
+					}
 				}
 			}
 			
@@ -942,7 +1078,10 @@ TMap<FIntVector, EBoardTileState> AGameBoard::TestBishopMovement(FIntVector Posi
 				Out.Add(RequestedTile->GetPosition(), TileResult);
 				if (TileResult == EBoardTileState::Failed || TileResult == EBoardTileState::Capture)
 				{
-					break;
+					if (PotentialMovement == nullptr || PotentialMovement != nullptr && PotentialMovement->StartTile != RequestedTile->GetPosition())
+					{
+						break;
+					}
 				}
 			}
 
@@ -1012,19 +1151,99 @@ TMap<FIntVector, EBoardTileState> AGameBoard::TestKnightMovement(FIntVector Posi
 	return Out;
 }
 
+#pragma optimize("",off)
 TMap<FIntVector, EBoardTileState> AGameBoard::TestCastlingMovement(FIntVector Position, AChessPiece* Piece)
 {
 	TMap<FIntVector, EBoardTileState> Out;
 
-	if (!Piece->HasMoved())
+	if (!Piece->IsRoyal() || Piece->HasMoved() || Piece->IsPinned())
 	{
 		return Out;
+	}
+
+	TArray<AChessPiece*> TeamPieces = GetTeamPieces(Piece->IsBlackTeam());
+	TArray<AChessPiece*> CastlingPieces;
+
+	TArray<FIntVector> ThreatenedTiles;
+
+	for (AChessPiece* TeamPiece : TeamPieces)
+	{
+		//If the current piece hasn't moved and can be used in castling.
+		if (TeamPiece != Piece && !TeamPiece->HasMoved() && (bool)(TeamPiece->GetAvailableMovement() & EPieceMovement::Castling))
+		{
+			CastlingPieces.Add(TeamPiece);
+		}
+	}
+
+	for (AChessPiece* Other : CastlingPieces)
+	{
+		FIntVector Origin = Piece->GetPosition();
+		FIntVector Direction = FIntVector::ZeroValue;
+		Direction.Y = (Other->GetPosition() - Origin).Y > 0 ? 1 : -1;
+
+		TArray<ABoardTile*> RoyalMovements; 
+
+		int iterator = 1;
+
+		bool bValidCastling = true;
+
+		ABoardTile* TargetTile;
+
+		while (bValidCastling)
+		{
+			TargetTile = GetTileAt(Origin + Direction * iterator);
+
+			//Record the tiles the Royal piece would move for further 'Check' testing.
+			if (iterator <= 2)
+			{
+				RoyalMovements.Add(TargetTile);
+			}
+
+			//The piece was found with no interference.
+			if (TargetTile->GetPiece() == Other)
+			{
+				break;
+			}
+			else if (TargetTile->GetPiece() != nullptr)
+			{
+				bValidCastling = false;
+				break;
+			}
+
+			iterator++;
+		}
+
+		//If the move is already not valid, continue to the next possible move.
+		if (!bValidCastling)
+		{
+			continue;
+		}
+
+		//If this is the first move to get to this point, request the list of threatened Positions.
+		if (ThreatenedTiles.Num() == 0)
+		{
+			ThreatenedTiles = GetTilesThreatened(Piece->IsBlackTeam());
+		}
+
+		for (ABoardTile* Tile : RoyalMovements)
+		{
+			//If any of the tiles is threatened, the move becomes invalid.
+			if (ThreatenedTiles.Find(Tile->GetPosition()) != INDEX_NONE)
+			{
+				bValidCastling = false;
+				break;
+			}
+		}
+
+		if (bValidCastling)
+		{
+			Out.Add(Position + Direction * 2,EBoardTileState::Castling);
+		}
 	}
 
 	return Out;
 }
 
-#pragma optimize("",off)
 void AGameBoard::TestForGameStatus()
 {
 	//Verify Draw
@@ -1250,7 +1469,7 @@ void AGameBoard::SetTeamInCheck(UTeamPieces* InTeam, bool bNewCheckStatus)
 				}
 			}
 
-			//GameMode->ToggleCheckVisualForPlayers();
+			//Show Check Shroud
 			return;
 		}
 	}

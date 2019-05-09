@@ -28,9 +28,6 @@ protected:
 	AGameBoard* GameBoard;
 
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Pieces")
-	TMap<EPieceFamilyType, TSubclassOf<APieceFamily>> AvailableFamilies;
-
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Pieces")
 	EPieceFamilyType DefaultFamilyPlayer1;
 
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Pieces")
@@ -42,6 +39,8 @@ protected:
 	EPieceFamilyType ActivePlayer;
 
 	TArray<EPieceFamilyType> Players;
+
+	TMap<EPieceFamilyType, FText> PlayerNames;
 
 	TArray<APieceFamily*> PlayersFamily;
 
@@ -71,4 +70,6 @@ public:
 	void SetGameRunningStatus(bool bNewStatus){ bGameIsRunning = bNewStatus;}
 
 	void PromotePiece(EPieceType Promotion);
+
+	void UpdateActivePlayerInterface();
 };

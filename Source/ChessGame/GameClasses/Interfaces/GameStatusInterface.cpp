@@ -2,3 +2,9 @@
 
 #include "GameStatusInterface.h"
 
+#include "ChessHUD.h"
+
+void UGameStatusInterface::SetHUD(AChessHUD* NewHUD)
+{
+	HUD = NewHUD;
+}

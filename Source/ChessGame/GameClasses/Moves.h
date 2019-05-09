@@ -18,7 +18,10 @@ struct FMove
 	UPROPERTY()
 	FIntVector EndTile = FIntVector(-1,-1,-1);
 
-	FMove(AChessPiece* TargetPiece, FIntVector Start, FIntVector End) : Piece(TargetPiece), StartTile(Start), EndTile(End){}
+	UPROPERTY()
+	AChessPiece* CastlingPartner = nullptr;
+
+	FMove(AChessPiece* TargetPiece, FIntVector Start, FIntVector End, AChessPiece* CastlingPiece = nullptr) : Piece(TargetPiece), StartTile(Start), EndTile(End), CastlingPartner(CastlingPiece){}
 	
 	FMove(){}
 

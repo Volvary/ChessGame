@@ -2,6 +2,7 @@
 
 #include "ChessPiece.h"
 #include "GameClasses/BoardTile.h"
+#include "AkAudio/Classes/AkComponent.h"
 
 // Sets default values
 AChessPiece::AChessPiece()

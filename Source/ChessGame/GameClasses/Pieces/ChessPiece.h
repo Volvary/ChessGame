@@ -12,6 +12,7 @@
 #include "ChessPiece.generated.h"
 
 class ABoardTile;
+class UAkComponent;
 
 UCLASS()
 class CHESSGAME_API AChessPiece : public AActor
@@ -19,6 +20,8 @@ class CHESSGAME_API AChessPiece : public AActor
 	GENERATED_BODY()
 
 protected:
+	
+	UAkComponent* SoundElement;
 
 	//Used as a bitwise. (Queen = Rook | Bishop)
 	UPROPERTY(meta = ( Bitmask, BitmaskEnum = "EPieceMovement"))
@@ -31,7 +34,6 @@ protected:
 	//Mostly used for Pawn moving 2 squares and for Castling.
 	bool bHasMoved = false;
 
-	//TODO: Remove
 	//Using bool since only two teams exist. Move to enum if adding more teams (1v1v1 chess)
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsBlackTeam = false;
@@ -97,4 +99,6 @@ public:
 	void SetCurrentTile(ABoardTile* Tile);
 
 	FIntVector GetPosition();
+	
+	//void PlayMovementSound();
 };

@@ -5,6 +5,9 @@
 #include "GameClasses/Interfaces/PawnPromotionInterface.h"
 #include "GameClasses/Interfaces/GameStatusInterface.h"
 #include "GameClasses/Interfaces/TurnStatusInterface.h"
+#include "GameClasses/Interfaces/SettingsMenu.h"
+#include "GameClasses/Interfaces/QuitMenu.h"
+#include "GameClasses/Interfaces/EndGamePrompt.h"
 
 #include "ChessGame.h"
 
@@ -14,6 +17,12 @@
 
 UUserWidget* AChessHUD::ShowInterface(TSubclassOf<UUserWidget> Widget, ESlateVisibility Visibility)
 {
+	if (Widget == nullptr)
+	{
+		UE_LOG(LogChess, Error, TEXT("ShowInterface was called on a nullptr reference. Aborted."));
+		return nullptr;
+	}
+
 	UUserWidget** WidgetRef = InterfaceMap.Find(Widget);
 
 	if (WidgetRef != nullptr)
@@ -79,4 +88,64 @@ void AChessHUD::ShowPromotionInterface()
 void AChessHUD::HidePromotionInterface()
 {
 	HideInterface(PawnPromotionInterfaceClass);
+}
+
+UTurnStatusInterface* AChessHUD::ShowTurnStatusInterface()
+{
+	UTurnStatusInterface* Interface = Cast<UTurnStatusInterface>(ShowInterface(TurnStatusInterfaceClass));
+
+	return Interface;
+}
+
+void AChessHUD::HideTurnStatusInterface()
+{
+	HideInterface(TurnStatusInterfaceClass);
+}
+
+USettingsMenu* AChessHUD::ShowSettingsMenu()
+{
+	USettingsMenu* Interface = Cast<USettingsMenu>(ShowInterface(SettingsMenuClass));
+
+	return Interface;
+}
+
+void AChessHUD::HideSettingsMenu()
+{
+	HideInterface(SettingsMenuClass);
+}
+
+UGameStatusInterface* AChessHUD::ShowGameStatusInterface()
+{
+	UGameStatusInterface* Interface = Cast<UGameStatusInterface>(ShowInterface(GameStatusInterfaceClass));
+
+	Interface->SetHUD(this);
+
+	return Interface;
+}
+
+void AChessHUD::HideGameStatusInterface()
+{
+	HideInterface(GameStatusInterfaceClass);
+}
+
+void AChessHUD::ShowQuitGameMenu()
+{
+	ShowInterface(QuitMenuClass);
+}
+
+void AChessHUD::HideQuitGameMenu()
+{
+	HideInterface(QuitMenuClass);
+}
+
+UEndGamePrompt* AChessHUD::ShowEndGamePrompt()
+{
+	UEndGamePrompt* Prompt = Cast<UEndGamePrompt>(ShowInterface(EndGamePromptClass));
+
+	return Prompt;
+}
+
+void AChessHUD::HideEndGamePrompt()
+{
+	HideInterface(EndGamePromptClass);
 }

@@ -4,7 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+
 #include "GameStatusInterface.generated.h"
+
+class AChessHUD;
 
 /**
  * 
@@ -14,4 +17,13 @@ class CHESSGAME_API UGameStatusInterface : public UUserWidget
 {
 	GENERATED_BODY()
 	
+
+protected:
+
+	UPROPERTY(BlueprintReadOnly)
+	AChessHUD* HUD = nullptr;
+
+public:
+
+	void SetHUD(AChessHUD* NewHUD);
 };
