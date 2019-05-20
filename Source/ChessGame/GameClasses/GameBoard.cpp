@@ -1277,7 +1277,7 @@ void AGameBoard::TestForGameStatus()
 
 	EPieceFamilyType ActiveTeam = GameMode->GetActivePlayer();
 
-	ClearPinned(ActiveTeam);
+	ClearPinned();
 
 	for (UTeamPieces* Team : GamePieces)
 	{
@@ -1293,18 +1293,15 @@ void AGameBoard::TestForGameStatus()
 	UTeamPieces* TeamInCheck = nullptr;
 	for (UTeamPieces* Team : GamePieces)
 	{
-		if (Team->Family != ActiveTeam)
-		{
-			//First, nullify check. Then test for Check in teams.
-			SetTeamInCheck(Team, false);
+		//First, nullify check. Then test for Check in teams.
+		SetTeamInCheck(Team, false);
 
-			for (AChessPiece* Piece : Team->TeamPieces)
+		for (AChessPiece* Piece : Team->TeamPieces)
+		{
+			if (Piece->IsRoyal() == true && Piece->IsPinned())
 			{
-				if (Piece->IsRoyal() == true && Piece->IsPinned())
-				{
-					SetTeamInCheck(Team, true);
-					TeamInCheck = Team;
-				}
+				SetTeamInCheck(Team, true);
+				TeamInCheck = Team;
 			}
 		}
 	}
@@ -1447,6 +1444,8 @@ void AGameBoard::ClearPinned(EPieceFamilyType FamilyToIgnore /*= EPieceFamilyTyp
 				Piece->ClearPins();
 			}
 		}
+
+		Team->TeamCheckSword->SetActorHiddenInGame(true);
 	}
 }
 
